@@ -1,5 +1,9 @@
 import express from "express";
-import { createUser } from "../controllers/user.controller";
+import {
+  createUser,
+  getUsers,
+  loginUser,
+} from "../controllers/user.controller";
 import {
   validateBody,
   validateRequiredFields,
@@ -7,11 +11,20 @@ import {
 
 const router = express.Router();
 
+router.get("/", getUsers);
+
 router.post(
   "/",
   validateBody,
   validateRequiredFields(["userName", "fullName", "email", "password"]),
   createUser
+);
+
+router.post(
+  "/login",
+  validateBody,
+  validateRequiredFields(["userNameOrEmail", "password"]),
+  loginUser
 );
 
 export default router;

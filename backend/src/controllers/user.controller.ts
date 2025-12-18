@@ -90,7 +90,7 @@ export const loginUser = async (req: Request, res: Response) => {
 
     // Check if user already exists
     if (!user) {
-      return res.status(400).json({ message: "User not found" });
+      return res.status(404).json({ message: "User not found" });
     }
 
     // Check if password is correct
@@ -108,6 +108,55 @@ export const loginUser = async (req: Request, res: Response) => {
         email: user.email,
       },
     });
+  } catch (error: any) {
+    console.log(error);
+    return res
+      .status(500)
+      .json({ message: `Internal server error: ${error.message}` });
+  }
+};
+
+export const logoutUser = async (req: Request, res: Response) => {
+  try {
+    const { userNameOrEmail } = req.body;
+
+    // Validate email and username
+    const parsedUsernameOrEmail = userNameOrEmail.toLowerCase();
+
+    const user = await User.findOne({
+      $or: [
+        { email: parsedUsernameOrEmail },
+        { userName: parsedUsernameOrEmail },
+      ],
+    });
+
+    // Check if user already exists
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    return res.status(200).json({
+      message: "User logged out successfully",
+    });
+  } catch (error: any) {
+    console.log(error);
+    return res
+      .status(500)
+      .json({ message: `Internal server error: ${error.message}` });
+  }
+};
+
+export const removeUser = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const user = await User.findByIdAndDelete(id);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    return res.status(200).json({ message: "User deleted successfully" });
   } catch (error: any) {
     console.log(error);
     return res

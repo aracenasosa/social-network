@@ -3,6 +3,8 @@ import {
   createUser,
   getUsers,
   loginUser,
+  logoutUser,
+  removeUser,
 } from "../controllers/user.controller";
 import {
   validateBody,
@@ -26,5 +28,14 @@ router.post(
   validateRequiredFields(["userNameOrEmail", "password"]),
   loginUser
 );
+
+router.post(
+  "/logout",
+  validateBody,
+  validateRequiredFields(["userNameOrEmail"]),
+  logoutUser
+);
+
+router.delete("/delete/:id", removeUser);
 
 export default router;

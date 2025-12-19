@@ -5,6 +5,7 @@ import {
   loginUser,
   logoutUser,
   removeUser,
+  updateUser,
 } from "../controllers/user.controller";
 import {
   validateBody,
@@ -37,5 +38,7 @@ router.post(
 );
 
 router.delete("/delete/:id", removeUser);
+
+router.patch("/update/:id", validateBody, updateUser);
 
 export default router;

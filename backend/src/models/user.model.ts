@@ -33,6 +33,16 @@ const userSchema = new Schema(
         message: (props) => `${props.value} is not a valid email!`,
       },
     },
+    profilePhoto: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    location: {
+      type: String,
+      trim: true,
+      default: "",
+    },
     password: {
       type: String,
       required: true,

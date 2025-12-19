@@ -25,7 +25,8 @@ export const getUsers = async (req: Request, res: Response) => {
 
 export const createUser = async (req: Request, res: Response) => {
   try {
-    const { userName, fullName, email, password } = req.body;
+    const { userName, fullName, email, password, profilePhoto, location } =
+      req.body;
 
     // Validate email and username
     const parsedEmail = email.toLowerCase();
@@ -55,6 +56,8 @@ export const createUser = async (req: Request, res: Response) => {
       fullName,
       email: parsedEmail,
       password,
+      profilePhoto: profilePhoto || "",
+      location: location || "",
     });
 
     return res.status(201).json({
@@ -162,5 +165,34 @@ export const removeUser = async (req: Request, res: Response) => {
     return res
       .status(500)
       .json({ message: `Internal server error: ${error.message}` });
+  }
+};
+
+export const updateUser = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const userUpdated = await User.findByIdAndUpdate(id, req.body, {
+      new: true,
+    });
+
+    if (!userUpdated) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    return res.status(200).json({
+      message: "User updated succesfully",
+      user: {
+        id: userUpdated._id,
+        fullName: userUpdated.fullName,
+        userName: userUpdated.userName,
+        email: userUpdated.email,
+      },
+    });
+  } catch (error: any) {
+    console.log(error);
+    return res
+      .status(500)
+      .json({ message: `Internal Server Error: ${error.message}` });
   }
 };

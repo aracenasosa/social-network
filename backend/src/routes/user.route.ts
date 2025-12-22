@@ -13,7 +13,10 @@ import {
   validateRequiredFields,
 } from "../middlewares/validateRequest.middleware";
 import { uploadSingle } from "../middlewares/upload";
-import { validateFormData } from "../middlewares/validateFormData";
+import {
+  validateFormData,
+  validateFormDataIsNotEmpty,
+} from "../middlewares/validateFormData";
 
 const router = express.Router();
 
@@ -47,6 +50,11 @@ router.post(
 
 router.delete("/delete/:id", removeUser);
 
-router.patch("/update/:id", validateBody, updateUser);
+router.patch(
+  "/update/:id",
+  uploadSingle.single("profilePhoto"),
+  validateFormDataIsNotEmpty,
+  updateUser
+);
 
 export default router;

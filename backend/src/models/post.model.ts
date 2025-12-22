@@ -6,13 +6,11 @@ const postScheme = new Schema(
       type: Schema.Types.ObjectId,
       ref: "User",
       required: true,
-      index: true,
     },
 
     parentPost: {
       type: Schema.Types.ObjectId,
       ref: "Post",
-      index: true,
       default: null,
     },
 

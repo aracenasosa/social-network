@@ -11,7 +11,6 @@ export function uploadBufferToCloudinary(params: {
   buffer: Buffer;
   folder: string;
   resourceType: "image" | "video";
-  mimeType?: string;
 }): Promise<CloudinaryUploadResult> {
   const { buffer, folder, resourceType } = params;
 
@@ -42,31 +41,21 @@ export async function deleteCloudinaryAsset(
   await cloudinary.uploader.destroy(publicId, { resource_type: resourceType });
 }
 
-export function getOptimizedImageUrl(publicId: string, width?: number) {
-  const transformations: any[] = [{ quality: "auto", fetch_format: "auto" }];
-  if (width) transformations.unshift({ width, crop: "fill", gravity: "auto" });
-
-  return cloudinary.url(publicId, {
-    resource_type: "image",
-    transformation: transformations,
-  });
-}
-
 type ImageVariant = "thumb" | "feed" | "full";
 
 const IMAGE_PRESETS: Record<ImageVariant, any[]> = {
   thumb: [
-    { width: 200, crop: "fill" },
+    { width: 200, crop: "fill", gravity: "auto" },
     { quality: "auto" },
     { fetch_format: "auto" },
   ],
   feed: [
-    { width: 900, crop: "limit" },
+    { width: 900, crop: "limit", gravity: "auto" },
     { quality: "auto" },
     { fetch_format: "auto" },
   ],
   full: [
-    { width: 1600, crop: "limit" },
+    { width: 1600, crop: "limit", gravity: "auto" },
     { quality: "auto" },
     { fetch_format: "auto" },
   ],

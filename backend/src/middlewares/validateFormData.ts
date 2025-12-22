@@ -42,3 +42,23 @@ export const validateFormData = ({
     next();
   };
 };
+
+/**
+ * Middleware to ensure form-data or body is not completely empty
+ */
+export const validateFormDataIsNotEmpty = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const hasBody = req.body && Object.keys(req.body).length > 0;
+  const hasFile = !!req.file;
+  const hasFiles = !!(req.files && (req.files as any).length > 0);
+
+  if (!hasBody && !hasFile && !hasFiles) {
+    return res.status(400).json({
+      message: "At least one field or file is required for this update",
+    });
+  }
+  next();
+};

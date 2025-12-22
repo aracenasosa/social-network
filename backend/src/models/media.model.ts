@@ -7,7 +7,6 @@ const MediaSchema = new Schema(
       type: Schema.Types.ObjectId,
       ref: "Post",
       required: true,
-      index: true,
     },
     type: { type: String, enum: ["image", "video"], required: true },
     url: { type: String, required: true },

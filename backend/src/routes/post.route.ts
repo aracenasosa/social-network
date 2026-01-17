@@ -4,20 +4,107 @@ import {
   getFeed,
   getPostThread,
 } from "../controllers/post.controller";
-import { enforceTotalUploadSize, uploadManyOrAny } from "../middlewares/upload";
+import {
+  uploadPostMedia,
+  validatePostMediaLimits,
+} from "../middlewares/upload";
 import { validateFormData } from "../middlewares/validateFormData";
+import { authenticateMiddleware } from "../middlewares/auth.middleware";
+
+/**
+ * @swagger
+ * tags:
+ *   name: Posts
+ *   description: Post management endpoints
+ */
 
 const route = Router();
 
+/**
+ * @swagger
+ * /api/posts:
+ *   post:
+ *     summary: Create a new post
+ *     tags: [Posts]
+ *     security:
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - author
+ *               - text
+ *             properties:
+ *               author:
+ *                 type: string
+ *                 description: Author ID
+ *               text:
+ *                 type: string
+ *                 description: Post content
+ *               media:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *                 description: |
+ *                   Upload photos and/or videos. Limits:
+ *                   - Photos: max 5 files, each max 5MB
+ *                   - Videos: max 2 files, each max 20MB
+ *                   - Total size (all files): max 40MB
+ *     responses:
+ *       201:
+ *         description: Post created successfully
+ *       400:
+ *         description: Invalid input or file limits exceeded
+ */
 route.post(
   "/",
-  uploadManyOrAny,
-  enforceTotalUploadSize,
+  authenticateMiddleware,
+  uploadPostMedia,
+  validatePostMediaLimits,
   validateFormData({ fields: ["author", "text"], requireFiles: false }),
   createPost
 );
 
-route.get("/feed", getFeed);
-route.get("/:id/thread", getPostThread);
+/**
+ * @swagger
+ * /api/posts/feed:
+ *   get:
+ *     summary: Get user feed
+ *     tags: [Posts]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Feed retrieved successfully
+ *       401:
+ *         description: Unauthorized
+ */
+route.get("/feed", authenticateMiddleware, getFeed);
+/**
+ * @swagger
+ * /api/posts/{id}/thread:
+ *   get:
+ *     summary: Get post thread
+ *     tags: [Posts]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Post ID
+ *     responses:
+ *       200:
+ *         description: Thread retrieved successfully
+ *       404:
+ *         description: Post not found
+ */
+route.get("/:id/thread", authenticateMiddleware, getPostThread);
 
 export default route;

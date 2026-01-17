@@ -1,11 +1,6 @@
 import { serializeMedia } from "./cloudinaryUpload";
 import { serializeAuthor } from "./user";
-import {
-  PostNode,
-  BuildTreeParams,
-  MediaByPostMap,
-  UsersByIdMap,
-} from "../types/post.types";
+import { PostNode, BuildTreeParams } from "../types/post.types";
 
 export function idStr(x: any) {
   return x ? String(x) : "";

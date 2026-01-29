@@ -1,3 +1,7 @@
+/**
+ * Authentication related types
+ */
+
 export interface User {
   _id: string;
   username: string;
@@ -7,6 +11,24 @@ export interface User {
   followers?: number;
   following?: number;
   createdAt: string;
+}
+
+export interface LoginUser {
+  id: string;
+  fullName: string;
+  userName: string;
+  email: string;
+}
+
+export interface UserProfile {
+  id: string;
+  fullName: string;
+  userName: string;
+  email: string;
+  avatarUrl?: string;
+  location?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface LoginCredentials {
@@ -23,7 +45,7 @@ export interface SignupData {
 export interface AuthResponse {
   message: string;
   accessToken: string;
-  user?: User;
+  user?: LoginUser;
 }
 
 export interface RefreshTokenResponse {
@@ -34,3 +56,4 @@ export interface ApiError {
   message: string;
   errors?: Record<string, string[]>;
 }
+

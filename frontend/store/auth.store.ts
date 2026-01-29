@@ -1,31 +1,44 @@
 import { create } from "zustand";
-import apiClient from "@/lib/axios";
-import { setAccessToken, removeAccessToken, getAccessToken } from "@/lib/token";
+import apiClient from "@/shared/lib/axios";
+import axios from "axios";
+import { setAccessToken, removeAccessToken, getAccessToken } from "@/shared/lib/token";
+import { decodeToken, isTokenExpired } from "@/shared/lib/jwt";
 import {
-  User,
+  UserProfile,
   LoginCredentials,
   SignupData,
   AuthResponse,
-} from "@/types/auth.types";
+  RefreshTokenResponse,
+} from "@/shared/types/auth.types";
+import {
+  API_BASE_URL,
+  AUTH_LOGIN_ENDPOINT,
+  AUTH_REGISTER_ENDPOINT,
+  AUTH_LOGOUT_ENDPOINT,
+  AUTH_REFRESH_ENDPOINT,
+  USER_BY_ID_ENDPOINT,
+} from "@/shared/constants/url";
+
+export type AuthStatus = "idle" | "checking" | "authenticated" | "guest";
 
 interface AuthState {
-  user: User | null;
-  isAuthenticated: boolean;
-  isLoading: boolean;
+  user: UserProfile | null;
+  status: AuthStatus;
+  isLoading: boolean; // Keep for backward compatibility or remove if unused, but status replaces its main purpose
   error: string | null;
 
   // Actions
   login: (credentials: LoginCredentials) => Promise<void>;
   signup: (data: SignupData) => Promise<void>;
   logout: () => Promise<void>;
-  setUser: (user: User | null) => void;
-  checkAuth: () => void;
+  setUser: (user: UserProfile | null) => void;
+  checkAuth: () => Promise<void>;
   clearError: () => void;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
-  isAuthenticated: false,
+  status: "idle",
   isLoading: false,
   error: null,
 
@@ -34,17 +47,28 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ isLoading: true, error: null });
 
       const { data } = await apiClient.post<AuthResponse>(
-        "/auth/login",
+        AUTH_LOGIN_ENDPOINT,
         credentials,
       );
 
       // Store access token
       setAccessToken(data.accessToken);
 
+      // Convert LoginUser to UserProfile format
+      const userProfile: UserProfile | null = data.user
+        ? {
+            id: data.user.id,
+            fullName: data.user.fullName,
+            userName: data.user.userName,
+            email: data.user.email,
+            avatarUrl: undefined, // Will be fetched if needed
+          }
+        : null;
+
       // Update auth state
       set({
-        user: data.user || null,
-        isAuthenticated: true,
+        user: userProfile,
+        status: "authenticated",
         isLoading: false,
       });
     } catch (error: any) {
@@ -52,7 +76,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({
         error: errorMessage,
         isLoading: false,
-        isAuthenticated: false,
+        status: "guest",
       });
       throw error;
     }
@@ -63,20 +87,33 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ isLoading: true, error: null });
 
       const response = await apiClient.post<AuthResponse>(
-        "/auth/register",
+        AUTH_REGISTER_ENDPOINT,
         data,
       );
 
       // If signup returns token, auto-login
       if (response.data.accessToken) {
         setAccessToken(response.data.accessToken);
+        
+        // Convert LoginUser to UserProfile format
+        const userProfile: UserProfile | null = response.data.user
+          ? {
+              id: response.data.user.id,
+              fullName: response.data.user.fullName,
+              userName: response.data.user.userName,
+              email: response.data.user.email,
+              avatarUrl: undefined, // Will be fetched if needed
+            }
+          : null;
+        
         set({
-          user: response.data.user || null,
-          isAuthenticated: true,
+          user: userProfile,
+          status: "authenticated",
           isLoading: false,
         });
       } else {
         set({ isLoading: false });
+        // Maybe keep status as guest if email verification is needed, or authenticated if no verification
       }
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || "Signup failed";
@@ -91,7 +128,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   logout: async () => {
     try {
       // Call logout endpoint to clear refresh token cookie
-      await apiClient.post("/auth/logout");
+      await apiClient.post(AUTH_LOGOUT_ENDPOINT);
     } catch (error) {
       console.error("Logout error:", error);
     } finally {
@@ -99,23 +136,105 @@ export const useAuthStore = create<AuthState>((set) => ({
       removeAccessToken();
       set({
         user: null,
-        isAuthenticated: false,
-      });
+        status: "guest",
+        isAuthenticated: false, // Legacy support if needed, but better to remove
+      } as any);
 
-      // Redirect to login
+      // Redirect to login handled by AuthProvider or component
       if (typeof window !== "undefined") {
         window.location.href = "/login";
       }
     }
   },
 
-  setUser: (user: User | null) => {
-    set({ user, isAuthenticated: !!user });
+  setUser: (user: UserProfile | null) => {
+    set({ user, status: user ? "authenticated" : "guest" });
   },
 
-  checkAuth: () => {
-    const token = getAccessToken();
-    set({ isAuthenticated: !!token });
+  checkAuth: async () => {
+    const currentState = get();
+    
+    // If we already have a user and a valid token, don't refetch
+    const currentToken = getAccessToken();
+    if (currentState.user && currentToken && !isTokenExpired(currentToken)) {
+      // User is already set and token is valid, just ensure status is authenticated
+      if (currentState.status !== "authenticated") {
+        set({ status: "authenticated" });
+      }
+      return;
+    }
+
+    set({ status: "checking" });
+    
+    // If we have a valid token that's not expired, try to get user info
+    if (currentToken && !isTokenExpired(currentToken)) {
+      try {
+        // Decode token to get userId
+        const payload = decodeToken(currentToken);
+        if (payload?.userId) {
+          // Only fetch user if we don't already have it or if userId doesn't match
+          if (!currentState.user || currentState.user.id !== payload.userId) {
+            // Fetch user info
+            const { data } = await apiClient.get<{ user: UserProfile }>(
+              USER_BY_ID_ENDPOINT(payload.userId)
+            );
+            set({
+              user: data.user,
+              status: "authenticated",
+            });
+            return;
+          } else {
+            // User already matches, just set status
+            set({ status: "authenticated" });
+            return;
+          }
+        }
+      } catch (error) {
+        // If fetching user fails, token might be invalid, try refresh
+        console.error("Failed to fetch user:", error);
+        // Fall through to refresh logic
+      }
+    }
+
+    // Only refresh if token is missing or expired
+    // Don't refresh if we just logged in (token is fresh)
+    if (!currentToken || isTokenExpired(currentToken)) {
+      try {
+        // Use raw axios to avoid interceptor loop
+        const { data } = await axios.post<RefreshTokenResponse>(
+          `${API_BASE_URL}${AUTH_REFRESH_ENDPOINT}`,
+          {},
+          { withCredentials: true },
+        );
+
+        const newToken = data.accessToken;
+        setAccessToken(newToken);
+
+        // Decode token to get userId
+        const payload = decodeToken(newToken);
+        if (payload?.userId) {
+          // Fetch user info using the new token
+          const { data: userData } = await apiClient.get<{ user: UserProfile }>(
+            USER_BY_ID_ENDPOINT(payload.userId)
+          );
+          set({
+            user: userData.user,
+            status: "authenticated",
+          });
+        } else {
+          // If we can't decode, still mark as authenticated (token is valid)
+          set({ status: "authenticated" });
+        }
+      } catch (error) {
+        // Refresh failed (no cookie or expired) - user needs to login
+        set({ status: "guest", user: null });
+        removeAccessToken();
+      }
+    } else {
+      // Token exists and is valid, but we couldn't fetch user - mark as guest
+      set({ status: "guest", user: null });
+      removeAccessToken();
+    }
   },
 
   clearError: () => {

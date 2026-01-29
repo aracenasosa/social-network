@@ -1,9 +1,10 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import { getAccessToken, setAccessToken, removeAccessToken } from "./token";
-import { RefreshTokenResponse } from "@/types/auth.types";
+import { API_BASE_URL, AUTH_REFRESH_ENDPOINT } from "@/shared/constants/url";
+import { RefreshTokenResponse } from "@/shared/types/auth.types";
 
 const apiClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_BASE_URL,
+  baseURL: API_BASE_URL,
   withCredentials: true, // Important for cookies (refresh token)
   headers: {
     "Content-Type": "application/json",
@@ -78,7 +79,7 @@ apiClient.interceptors.response.use(
       try {
         // Call refresh endpoint (without access token, uses httpOnly cookie)
         const { data } = await axios.post<RefreshTokenResponse>(
-          `${process.env.NEXT_PUBLIC_API_BASE_URL}/auth/refresh`,
+          `${API_BASE_URL}${AUTH_REFRESH_ENDPOINT}`,
           {},
           { withCredentials: true },
         );
@@ -119,3 +120,4 @@ apiClient.interceptors.response.use(
 );
 
 export default apiClient;
+

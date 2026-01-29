@@ -1,0 +1,197 @@
+'use client';
+
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Post } from '@/shared/types/post.types';
+import { cn } from '@/shared/lib/utils';
+import { Avatar } from '@/components/shared/avatar';
+import { PostActions } from './post-actions';
+import { MoreHorizontal } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { CreateThreadModal } from './create-thread-modal';
+import { PostMediaGrid } from './post-media-grid';
+
+import { useQueryClient } from '@tanstack/react-query';
+import { useAuthStore } from '@/store/auth.store';
+import { postService } from '@/services/post.service';
+
+interface PostCardProps {
+  post: Post;
+  isThreadView?: boolean;
+  hideConnectorLine?: boolean;
+}
+
+export function PostCard({ post, isThreadView = false, hideConnectorLine = false }: PostCardProps) {
+  const router = useRouter();
+  const { user } = useAuthStore();
+  const queryClient = useQueryClient();
+  const [isMediaOpen, setIsMediaOpen] = useState(false);
+  const [activeMediaIndex, setActiveMediaIndex] = useState(0);
+  const [isReplyModalOpen, setIsReplyModalOpen] = useState(false);
+
+  const handlePostClick = (e: React.MouseEvent) => {
+    // Navigate to thread if not already in thread view
+    // and if the click wasn't on an interactive element
+    const target = e.target as HTMLElement;
+    if (
+      target.closest('button') ||
+      target.closest('a') ||
+      target.closest('[data-no-thread-nav="true"]')
+    ) {
+      return;
+    }
+    
+    router.push(`/posts/${post._id}/thread`);
+  };
+
+  const formatDate = (dateString: string) => {
+    try {
+        return formatDistanceToNow(new Date(dateString), { addSuffix: true }).replace('about ', '');
+    } catch (e) {
+        return '';
+    }
+  };
+
+  return (
+    <div>
+      <div
+        onClick={handlePostClick}
+        className={cn(
+          "px-4 py-3 transition-colors cursor-pointer border-b border-border",
+          isThreadView && "border-none"
+        )}
+        style={{ backgroundColor: 'rgb(24, 24, 24)' }}
+      >
+        <div className="flex space-x-3">
+          {/* Avatar */}
+          <div className="shrink-0 relative flex flex-col items-center">
+            <Avatar
+              src={post.author.avatarUrl}
+              alt={post.author.userName}
+              fallback={post.author.fullName}
+              size="md"
+              className="z-10"
+            />
+            {/* Thread Connector Line */}
+            {/* Show line for thread view or if there are replies in feed view 
+                But hide if explicitly requested (e.g. main post in thread view)
+            */}
+            {((post.repliesCount > 0 && !isThreadView) || (isThreadView && !hideConnectorLine)) && (
+              <div className={cn(
+                  "w-0.5 bg-white/10 absolute left-1/2 -translate-x-1/2",
+                  isThreadView ? "top-10 bottom-0" : "top-10 h-full" 
+                  // top-10 matches avatar height (h-10)
+              )} />
+            )}
+          </div>
+
+          {/* Content */}
+          <div className="flex-1 min-w-0">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-1 text-sm">
+                {!isThreadView && (
+                    <span className="font-bold text-foreground truncate">
+                    {post.author.fullName}
+                    </span>
+                )}
+                
+                <span className={isThreadView ? "font-bold text-foreground" : "text-muted-foreground"}>
+                  {isThreadView ? post.author.userName : `@${post.author.userName}`}
+                </span>
+
+                {!isThreadView && (
+                    <>
+                        <span className="text-muted-foreground">·</span>
+                        <span className="text-muted-foreground hover:underline">
+                        {formatDate(post.createdAt)}
+                        </span>
+                    </>
+                )}
+
+                {/* In Thread View, date is sometimes just shown next to username or omitted, 
+                    user asked for "only username". Assuming just username for now. 
+                    If date is needed, we can re-add it. 
+                    Screenshot shows "pruebascondoriano 26m". 
+                    So we should keep the date but maybe style it differently? 
+                    User said "use only the username, no the full name".
+                    I will keep the date as it provides context.
+                */}
+                 {isThreadView && (
+                    <span className="text-muted-foreground ml-2">
+                        {formatDate(post.createdAt)}
+                    </span>
+                 )}
+              </div>
+              {user?.id === post.author._id && (
+                <button className="text-muted-foreground hover:text-primary rounded-full p-1 hover:bg-accent transition-colors">
+                  <MoreHorizontal size={18} />
+                </button>
+              )}
+            </div>
+
+            {/* Text */}
+            <p className="text-foreground mt-1 whitespace-pre-wrap leading-normal text-[15px]">
+              {post.text}
+            </p>
+
+            {/* Media Grid / carousel */}
+            <PostMediaGrid
+              media={post.media}
+              data-no-thread-nav="true"
+              onMediaClick={(index) => {
+                setActiveMediaIndex(index);
+                setIsMediaOpen(true);
+              }}
+            />
+
+            <PostActions
+              likesCount={post.likesCount}
+              repliesCount={post.repliesCount}
+              isLiked={post.isLiked}
+              onReply={() => setIsReplyModalOpen(true)}
+              onLike={async () => {
+                if (!user) return;
+                try {
+                    await postService.toggleLike(post._id);
+                    queryClient.invalidateQueries({ queryKey: ['feed'] });
+                    queryClient.invalidateQueries({ queryKey: ['thread'] });
+                } catch (error) {
+                    console.error('Failed to toggle like', error);
+                }
+              }}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Media viewer dialog */}
+      {post.media && post.media.length > 0 && (
+        <Dialog open={isMediaOpen} onOpenChange={setIsMediaOpen}>
+          <DialogContent className="max-w-3xl bg-black p-0 border-none">
+            <DialogTitle className="sr-only">Media viewer</DialogTitle>
+            <PostMediaGrid
+              media={post.media}
+              activeIndex={activeMediaIndex}
+              onActiveIndexChange={setActiveMediaIndex}
+              isFullScreen
+            />
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Reply modal */}
+      <CreateThreadModal
+        open={isReplyModalOpen}
+        onOpenChange={setIsReplyModalOpen}
+        parentPostId={post._id}
+        parentPostAuthor={post.author.userName}
+      />
+    </div>
+  );
+}

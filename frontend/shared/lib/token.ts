@@ -18,3 +18,4 @@ export const removeAccessToken = (): void => {
 export const hasAccessToken = (): boolean => {
   return !!getAccessToken();
 };
+

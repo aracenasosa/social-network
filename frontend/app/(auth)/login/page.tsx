@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useAuthStore } from '@/store/auth.store';
-import { loginSchema, type LoginFormData } from '@/lib/validations/auth.schema';
+import { loginSchema, type LoginFormData } from '@/shared/lib/validations/auth.schema';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -65,7 +65,7 @@ export default function LoginPage() {
           )}
 
           {/* Login Form */}
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" autoComplete="off">
             {/* Email or Username Field */}
             <div>
               <label
@@ -77,7 +77,7 @@ export default function LoginPage() {
               <input
                 id="emailOrUsername"
                 type="text"
-                autoComplete="username"
+                autoComplete="off"
                 {...register('emailOrUsername')}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900 placeholder-gray-400 transition-all"
                 placeholder="you@example.com or username"
@@ -101,7 +101,7 @@ export default function LoginPage() {
                 <input
                   id="password"
                   type={showPassword ? 'text' : 'password'}
-                  autoComplete="current-password"
+                  autoComplete="new-password"
                   {...register('password')}
                   className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900 placeholder-gray-400 transition-all"
                   placeholder="••••••••"

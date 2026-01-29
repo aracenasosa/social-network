@@ -1,3 +1,7 @@
+/**
+ * Post related types and interfaces
+ */
+
 export interface PostAuthor {
   _id: string;
   userName: string;
@@ -19,9 +23,17 @@ export interface Post {
   createdAt: string;
   updatedAt: string;
   media: PostMedia[];
+  parentPost?: string | null;
+  replies?: Post[];
+  isLiked?: boolean;
 }
 
 export interface FeedResponse {
   items: Post[];
   nextCursor?: string;
+}
+
+export interface CreatePostResponse {
+  post: Post;
+  media: PostMedia[];
 }

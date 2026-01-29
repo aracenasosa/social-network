@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useAuthStore } from '@/store/auth.store';
-import { signupSchema, type SignupFormData } from '@/lib/validations/auth.schema';
+import { signupSchema, type SignupFormData } from '@/shared/lib/validations/auth.schema';
 
 export default function SignupPage() {
   const router = useRouter();

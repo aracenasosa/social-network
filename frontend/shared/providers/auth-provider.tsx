@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth.store';
 import { Skeleton } from '@/components/ui/skeleton';
+import { hasAccessToken } from '@/shared/lib/token';
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -16,7 +17,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // Only check auth if NOT on a public route
-    // On public routes, skip auth check to avoid unnecessary refresh calls
     if (!isPublicRoute) {
       // Don't call checkAuth if we're already authenticated with a user
       // This prevents infinite loops after login
@@ -24,9 +24,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         checkAuth();
       }
     } else if (status === 'idle') {
-      // On public routes, if status is idle, set to guest without calling refresh
-      // This prevents refresh calls on login/signup pages
-      useAuthStore.setState({ status: 'guest' });
+      // On public routes, if we already have a token, verify it so we can redirect
+      // authenticated users away from /login or /signup.
+      if (hasAccessToken()) {
+        checkAuth();
+      } else {
+        // No token: explicitly mark as guest so pages render normally
+        useAuthStore.setState({ status: 'guest' });
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname, isPublicRoute, status, user]); // checkAuth is stable from Zustand, so we can omit it
